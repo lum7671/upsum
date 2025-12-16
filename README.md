@@ -17,7 +17,7 @@
 이 프로젝트는 [Rye](https://rye-up.com/)를 사용하여 파이썬 환경 및 의존성을 관리합니다.
 
 ```bash
-git clone https://github.com/your-username/upsum.git
+git clone https://github.com/lum7671/upsum.git
 cd upsum
 rye sync
 ```
