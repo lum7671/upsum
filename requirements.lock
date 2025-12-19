@@ -49,6 +49,10 @@ httplib2==0.31.0
     # via google-auth-httplib2
 idna==3.11
     # via requests
+markdown-it-py==4.0.0
+    # via upsum
+mdurl==0.1.2
+    # via markdown-it-py
 proto-plus==1.26.1
     # via google-ai-generativelanguage
     # via google-api-core

@@ -4,9 +4,11 @@ import glob
 import smtplib
 import argparse
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
+from markdown_it import MarkdownIt
 
 def find_latest_log_file(log_dir):
     """지정된 디렉토리에서 가장 최근의 로그 파일을 찾습니다."""
@@ -21,21 +23,15 @@ def find_latest_log_file(log_dir):
     return latest_file
 
 def parse_log_file(file_path):
-    """로그 파일을 파싱하여 재부팅 필요 여부와 업데이트된 패키지 목록을 추출합니다."""
+    """로그 파일을 파싱하여 재부팅 필요 여부와 전체 로그 내용을 반환합니다."""
     with open(file_path, 'r') as f:
         content = f.read()
 
     reboot_required = "reboot is required" in content.lower() or "rebooting" in content.lower()
 
-    # Debian/Ubuntu apt 로그 형식에 맞는 정규식
-    # 예: "Upgrade: package-name (1.0.0, 1.1.0)"
-    # 예: "Install: package-name (1.0.0)"
-    package_pattern = re.compile(r"(?:Upgrade|Install): ([\w.-]+)(?::\w+)? \((?:([\d.:~+-]+))? ?-> ?([\d.:~+-]+)\)")
-    upgrades = package_pattern.findall(content)
-    
     parsed_data = {
         "reboot_required": reboot_required,
-        "upgraded_packages": [{"name": name, "from": old, "to": new} for name, old, new in upgrades],
+        "log_content": content,
     }
     return parsed_data
 
@@ -46,42 +42,90 @@ def generate_summary_with_gemini(api_key, parsed_data):
 
     reboot_text = "시스템 재부팅이 필요합니다." if parsed_data["reboot_required"] else "시스템 재부팅이 필요하지 않습니다."
     
-    packages_texts = []
-    for pkg in parsed_data["upgraded_packages"]:
-        packages_texts.append(f"- {pkg['name']}: {pkg['from']} -> {pkg['to']}")
-    
-    if not packages_texts:
-        packages_texts.append("- 업데이트된 패키지가 없습니다.")
+    log_content = parsed_data["log_content"]
 
-    package_info = "\n".join(packages_texts)
+    # DietPi OS 업데이트 확인
+    dietpi_update_match = re.search(r"DietPi-Update\s+:\s+v([\d.]+)\s+is\s+now\s+available", log_content)
+    dietpi_release_notes = ""
+    if dietpi_update_match:
+        version = dietpi_update_match.group(1)
+        # Gemini does not have real-time web access, so we'll just add a note.
+        dietpi_release_notes = f"\n\n**DietPi v{version} 업데이트 정보:**\n- 이 버전에 대한 릴리스 정보는 웹사이트를 참조하세요."
 
     prompt = f"""
-    당신은 시스템 관리자를 위한 보고서 작성 도우미입니다. 다음은 시스템 업데이트 로그 분석 결과입니다. 이 정보를 바탕으로 간결하고 명확한 한국어 요약 보고서를 작성해주세요.
+    당신은 시스템 관리자를 위한 보고서 작성 도우미입니다. 다음은 시스템 업데이트 전체 로그입니다. 이 정보를 바탕으로 상세하고 명확한 한국어 보고서를 작성해주세요.
 
-    1.  **재부팅 필요 여부:** {reboot_text}
-    2.  **주요 업데이트 내역:**
-        {package_info}
+    **로그 내용:**
+    ```
+    {log_content}
+    ```
 
-    위 내용을 바탕으로, 이메일로 보내기 좋은 형식의 최종 요약문을 생성해주세요. 가장 중요한 재부팅 필요 여부를 첫 문장에 명시적으로 언급해주세요.
+    **작성 지침:**
+
+    1.  **재부팅 필요 여부:** 보고서 최상단에 "{reboot_text}" 문구를 명확히 포함해주세요.
+    2.  **업데이트 상세 내역:**
+        - 로그에서 업데이트된 모든 패키지 또는 스크립트 목록을 추출해주세요.
+        - 각 항목에 대해 이전 버전과 새로운 버전 번호를 명확하게 표시해주세요 (예: `openssl 1.1.1w-0+deb11u1 -> 1.1.1w-0+deb11u2`).
+        - 단순 패키지 설치, 삭제, 시스템 메시지 등도 의미있게 요약해주세요.
+    3.  **DietPi OS 업데이트:**
+        - 만약 'DietPi-Update' 관련 로그가 있다면, 어떤 버전으로 업데이트되었는지 명시해주세요.
+        - {dietpi_release_notes}
+    4.  **형식:**
+        - 모든 내용은 한국어로 작성해주세요.
+        - 각 섹션을 명확하게 구분하여 가독성을 높여주세요.
+        - 최종 보고서는 이메일로 보내기 좋은 형식이어야 합니다.
+
+    **최종 보고서 예시:**
+
+    **제목: 일일 시스템 업데이트 보고서**
+
+    **재부팅 필요 여부:** 시스템 재부팅이 필요합니다.
+
+    **상세 업데이트 내역:**
+
+    *   **OS 업데이트:**
+        *   DietPi가 v8.25.1로 업데이트되었습니다. (자세한 변경 사항은 공식 홈페이지를 참고하세요.)
+
+    *   **패키지 업데이트:**
+        *   openssl: 1.1.1w-0+deb11u1 -> 1.1.1w-0+deb11u2
+        *   libssl1.1: 1.1.1w-0+deb11u1 -> 1.1.1w-0+deb11u2
+        *   unattended-upgrades: 2.8 -> 2.9
+    
+    *   **신규 설치:**
+        *   new-package: 1.0.0
+
+    위 지침과 예시를 참고하여, 제공된 로그 내용을 바탕으로 최종 보고서를 생성해주세요.
     """
 
     response = model.generate_content(prompt)
     return response.text
 
+from email.mime.multipart import MIMEMultipart
+from markdown_it import MarkdownIt
+
 def send_email(subject, body, smtp_config):
     """요약된 내용을 이메일로 전송합니다."""
-    msg = MIMEText(body, _charset="utf-8")
+    
+    # Convert markdown to HTML
+    md = MarkdownIt()
+    html_body = md.render(body)
+
+    # Create a multipart message
+    msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = smtp_config["from"] if smtp_config["from"] else "upsum@example.com" # From 주소가 없으면 에러 발생 가능성 있어 기본값 설정
+    msg['From'] = smtp_config["from"] if smtp_config["from"] else "upsum@example.com"
     msg['To'] = smtp_config["to"]
+
+    # Attach parts
+    part1 = MIMEText(body, 'plain', 'utf-8')
+    part2 = MIMEText(html_body, 'html', 'utf-8')
+    msg.attach(part1)
+    msg.attach(part2)
 
     try:
         with smtplib.SMTP(smtp_config["host"], smtp_config["port"]) as server:
             if smtp_config["port"] == 587: # TLS 포트인 경우 starttls 시도
                 server.starttls()
-            elif smtp_config["port"] == 465: # SMTPS 포트인 경우 SSL 컨텍스트 사용 (여기서는 일반 SMTP 사용하므로 587만 처리)
-                # smtplib.SMTP_SSL 을 사용해야 하지만, 현재 SMTP만 사용하므로 이 부분은 필요시 추가
-                pass 
             
             if smtp_config["user"] and smtp_config["password"]:
                 server.login(smtp_config["user"], smtp_config["password"])
