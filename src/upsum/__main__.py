@@ -9,6 +9,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
 from markdown_it import MarkdownIt
+import datetime
+
+
+# Get today's date
+today = datetime.date.today()
+
+# Format the date as "YYYY년 MM월 DD일"
+__formatted_date__ = today.strftime("%Y년 %m월 %d일")
+
 
 def find_latest_log_file(log_dir):
     """지정된 디렉토리에서 가장 최근의 로그 파일을 찾습니다."""
@@ -54,6 +63,7 @@ def generate_summary_with_gemini(api_key, parsed_data):
 
     prompt = f"""
     당신은 시스템 관리자를 위한 보고서 작성 도우미입니다. 다음은 시스템 업데이트 전체 로그입니다. 이 정보를 바탕으로 상세하고 명확한 한국어 보고서를 작성해주세요.
+    작성일은 오늘 날짜인 `{__formatted_date__}` 로 사용해 주세요.
 
     **로그 내용:**
     ```
@@ -77,7 +87,7 @@ def generate_summary_with_gemini(api_key, parsed_data):
 
     **최종 보고서 예시:**
 
-    **제목: 일일 시스템 업데이트 보고서**
+    **제목: {__formatted_date__} 시스템 업데이트 보고서**
 
     **재부팅 필요 여부:** 시스템 재부팅이 필요합니다.
 
@@ -191,7 +201,7 @@ def main():
         # 3. Gemini로 요약 생성
         summary = generate_summary_with_gemini(gemini_api_key, parsed_data)
         
-        subject = "일일 시스템 업데이트 요약"
+        subject = f"{__formatted_date__} 시스템 업데이트 요약"
 
         print("--- Generated Summary ---")
         print(summary)
