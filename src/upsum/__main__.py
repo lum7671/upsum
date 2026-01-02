@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from dotenv import load_dotenv
-import google.generativeai as genai
+import google.genai as genai
 from markdown_it import MarkdownIt
 import datetime
 
@@ -46,8 +46,7 @@ def parse_log_file(file_path):
 
 def generate_summary_with_gemini(api_key, parsed_data):
     """Gemini API를 사용하여 요약문을 생성합니다."""
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('models/gemini-2.5-flash')
+    client = genai.Client(api_key=api_key)
 
     reboot_text = "시스템 재부팅이 필요합니다." if parsed_data["reboot_required"] else "시스템 재부팅이 필요하지 않습니다."
     
@@ -107,7 +106,7 @@ def generate_summary_with_gemini(api_key, parsed_data):
     위 지침과 예시를 참고하여, 제공된 로그 내용을 바탕으로 최종 보고서를 생성해주세요.
     """
 
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
     return response.text
 
 from email.mime.multipart import MIMEMultipart
