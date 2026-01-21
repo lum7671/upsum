@@ -12,9 +12,9 @@
 
 ## 시스템 요구사항
 
--   **Python**: 3.8 이상
+-   **Python**: 3.10 이상
 -   **운영체제**: Linux, macOS (테스트 환경: DietPi on Raspberry Pi 4B)
--   **패키지 관리자**: [Rye](https://rye-up.com/) (권장) 또는 pip
+-   **패키지 관리자**: [uv](https://docs.astral.sh/uv/) (권장) 또는 pip
 
 ## 사전 준비
 
@@ -48,13 +48,18 @@ Gmail을 통해 이메일을 보내려면 다음 설정이 필요합니다:
 
 ### 1. 프로젝트 클론 및 의존성 설치
 
-이 프로젝트는 [Rye](https://rye-up.com/)를 사용하여 파이썬 환경 및 의존성을 관리합니다.
+이 프로젝트는 [uv](https://docs.astral.sh/uv/)를 사용하여 파이썬 환경 및 의존성을 관리합니다.
 
 ```bash
 git clone https://github.com/lum7671/upsum.git
 cd upsum
-rye sync
+uv sync
 ```
+
+> **참고**: uv가 설치되지 않은 경우, 다음 명령어로 설치하세요:
+> ```bash
+> curl -LsSf https://astral.sh/uv/install.sh | sh
+> ```
 
 ### 2. 환경 변수 설정
 
@@ -104,7 +109,7 @@ MAIL_TO="recipient@example.com"    # 수신자 주소 (필수)
 최신 로그 파일을 요약하고 이메일을 전송합니다. 로그는 기본적으로 `~/logs` 디렉토리에서 찾습니다.
 
 ```bash
-rye run upsum
+uv run upsum
 ```
 
 ### Dry Run (테스트 실행)
@@ -112,7 +117,7 @@ rye run upsum
 이메일을 보내지 않고, 생성된 요약문을 터미널에서 확인하고 싶을 때 사용합니다.
 
 ```bash
-rye run upsum --dry-run
+uv run upsum --dry-run
 ```
 
 ### 다른 로그 디렉토리 지정
@@ -120,7 +125,7 @@ rye run upsum --dry-run
 기본값이 아닌 다른 디렉토리에 있는 로그를 처리하려면 `--log-dir` 옵션을 사용하세요.
 
 ```bash
-rye run upsum --log-dir /var/log/apt/
+uv run upsum --log-dir /var/log/apt/
 ```
 
 ## 출력 형식
@@ -297,10 +302,10 @@ ERROR Gemini API call failed after 3 attempts: Models.generate_content() got an 
 **해결 방법:**
 ```bash
 # 라이브러리 업데이트
-rye sync --update-all
+uv sync --upgrade
 
 # 또는 특정 버전으로 고정
-# pyproject.toml에서: "google-genai>=1.0.0,<2.0.0"
+# pyproject.toml에서: "google-genai>=1.56.0,<2.0.0"
 ```
 
 ### 3. SMTP 인증 실패
@@ -353,7 +358,7 @@ WARNING JSON parsing failed; returning raw text fallback
 **디버깅:**
 ```bash
 # 수동으로 동일한 명령어 실행
-/home/dietpi/.rye/shims/rye run -p /home/dietpi/git/upsum upsum --dry-run
+cd /home/dietpi/git/upsum && /home/dietpi/.local/bin/uv run upsum --dry-run
 ```
 
 ## 보안 권장사항
@@ -384,11 +389,11 @@ cat .gitignore | grep .env
 
 ## crontab에 등록하기
 
-매일 새벽 4시에 자동으로 업데이트 요약을 이메일로 받으려면 `crontab -e`를 실행하고 다음 라인을 추가하세요. `rye`의 경로와 프로젝트 경로를 자신의 환경에 맞게 수정해야 합니다.
+매일 새벽 4시에 자동으로 업데이트 요약을 이메일로 받으려면 `crontab -e`를 실행하고 다음 라인을 추가하세요. `uv`의 경로와 프로젝트 경로를 자신의 환경에 맞게 수정해야 합니다.
 
 ```crontab
 # 매일 새벽 4시에 upsum 실행
-0 4 * * * /home/dietpi/.rye/shims/rye run -p /home/dietpi/git/upsum upsum > /home/dietpi/logs/upsum_cron.log 2>&1
+0 4 * * * cd /home/dietpi/git/upsum && /home/dietpi/.local/bin/uv run upsum > /home/dietpi/logs/upsum_cron.log 2>&1
 ```
 
-**참고:** `crontab`에서 `rye run`을 실행하려면 전체 경로를 명시해주는 것이 안정적입니다. `which rye` 명령어로 `rye`의 설치 경로를 확인할 수 있습니다. `-p` 옵션으로 프로젝트 경로를 지정해야 올바르게 컨텍스트를 찾을 수 있습니다.
+**참고:** `crontab`에서 `uv run`을 실행하려면 전체 경로를 명시해주는 것이 안정적입니다. `which uv` 명령어로 `uv`의 설치 경로를 확인할 수 있습니다. `cd` 명령으로 프로젝트 디렉토리로 이동한 후 실행해야 올바르게 작동합니다.

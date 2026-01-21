@@ -43,8 +43,8 @@ CLI Args → Config Loading (.env)
 
 ## Technology Stack
 
-- **Language**: Python 3.8+
-- **Package Manager**: Rye (managed project)
+- **Language**: Python 3.10+
+- **Package Manager**: uv (previously Rye, migrated 2026-01-21)
 - **AI Model**: Google Gemini 2.5 Flash (via `google-genai` SDK)
 - **Email**: SMTP with TLS (port 587), multipart MIME (HTML + Plain Text)
 - **Markdown**: `markdown-it-py` for HTML conversion
@@ -177,7 +177,7 @@ MIMEMultipart("alternative")
 
 ### Dry Run Mode
 ```bash
-rye run upsum --dry-run
+uv run upsum --dry-run
 ```
 - Skips email sending
 - Prints summary to console
@@ -186,10 +186,10 @@ rye run upsum --dry-run
 ### Local Testing
 ```bash
 # Test with specific log file
-rye run upsum --log-file /path/to/test.log --dry-run
+uv run upsum --log-file /path/to/test.log --dry-run
 
 # Test with different log directory
-rye run upsum --log-dir /var/log/apt --dry-run
+uv run upsum --log-dir /var/log/apt --dry-run
 ```
 
 ### Debugging Gemini Responses
@@ -361,13 +361,18 @@ dependencies = [
 ## Deployment Notes
 
 ### Cron Usage
-- Use absolute paths for `rye` executable
-- Specify project path with `-p` flag
+- Use absolute paths for `uv` executable
+- Change to project directory with `cd` before running
 - Redirect output to log file: `> /path/to/upsum_cron.log 2>&1`
 - Ensure `.env` file is readable by cron user
 
+**Example crontab:**
+```crontab
+0 4 * * * cd /home/dietpi/git/upsum && /home/dietpi/.local/bin/uv run upsum > /home/dietpi/logs/upsum_cron.log 2>&1
+```
+
 ### System Requirements
-- Python 3.8+
+- Python 3.10+
 - Linux or macOS (tested on DietPi/Raspberry Pi 4B)
 - Internet connectivity (Gemini API, SMTP)
 - Syslog support (optional, falls back to stderr)
