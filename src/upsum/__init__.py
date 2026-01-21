@@ -1,3 +1,7 @@
-def main() -> int:
-    print("Hello from upsum!")
-    return 0
+"""Upsum package utilities."""
+
+__all__ = [
+    "__version__",
+]
+
+__version__ = "0.9.0"
