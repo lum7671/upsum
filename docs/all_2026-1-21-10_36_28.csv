@@ -1,0 +1,10 @@
+All
+Date,Time,Level,Host Name,Category,Program,Messages
+2026-01-21,10:35:00,Error,rp4bdp,user,upsum, ERROR An error occurred: Models.generate_content() got an unexpected keyword argument 'generation_config'
+2026-01-21,10:35:00,Error,rp4bdp,user,upsum, ERROR Gemini API call failed after 3 attempts: Models.generate_content() got an unexpected keyword argument 'generation_config'
+2026-01-21,10:35:00,Warning,rp4bdp,user,upsum, WARNING google-genai client does not support request_options timeout; retrying without explicit timeout
+2026-01-21,10:34:58,Warning,rp4bdp,user,upsum, WARNING Gemini API call failed (attempt 2/3); retrying in 2s: Models.generate_content() got an unexpected keyword argument 'generation_config'
+2026-01-21,10:34:58,Warning,rp4bdp,user,upsum, WARNING google-genai client does not support request_options timeout; retrying without explicit timeout
+2026-01-21,10:34:57,Warning,rp4bdp,user,upsum, WARNING Gemini API call failed (attempt 1/3); retrying in 1s: Models.generate_content() got an unexpected keyword argument 'generation_config'
+2026-01-21,10:34:57,Warning,rp4bdp,user,upsum, WARNING google-genai client does not support request_options timeout; retrying without explicit timeout
+2026-01-21,10:34:56,Info,rp4bdp,user,upsum, INFO Processing log file: /home/dietpi/logs/update_all-20260121_023105.log

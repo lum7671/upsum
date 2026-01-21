@@ -123,22 +123,19 @@ def generate_summary_with_gemini(api_key: str, parsed_data: dict, formatted_date
     }
 
     def _call_gemini():
+        # Note: google-genai v1.56.0 uses GenerateContentConfig with direct parameters
+        config = genai.types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=json_schema,
+        )
+        
         request_kwargs = {
             "model": "gemini-2.5-flash",
             "contents": prompt,
-            "generation_config": genai.types.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=json_schema,
-            ),
+            "config": config,
         }
 
-        try:
-            request_kwargs["request_options"] = {"timeout": GEMINI_TIMEOUT_SECONDS}
-            return client.models.generate_content(**request_kwargs)
-        except TypeError:
-            logger.warning("google-genai client does not support request_options timeout; retrying without explicit timeout")
-            request_kwargs.pop("request_options", None)
-            return client.models.generate_content(**request_kwargs)
+        return client.models.generate_content(**request_kwargs)
 
     last_error: Optional[Exception] = None
     for attempt in range(GEMINI_MAX_RETRIES):

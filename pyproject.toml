@@ -6,7 +6,7 @@ authors = [
     { name = "Nate Doohyun Jang", email = "1220430+lum7671@users.noreply.github.com " }
 ]
 dependencies = [
-    "google-genai",
+    "google-genai>=1.56.0,<2.0.0",
     "python-dotenv",
     "markdown-it-py>=4.0.0",
 ]
