@@ -1,6 +1,6 @@
 [project]
 name = "upsum"
-version = "0.9.0"
+version = "0.9.1"
 description = "Add your description here"
 authors = [
     { name = "Nate Doohyun Jang", email = "1220430+lum7671@users.noreply.github.com " }
