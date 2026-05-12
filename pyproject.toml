@@ -6,12 +6,12 @@ authors = [
     { name = "Nate Doohyun Jang", email = "1220430+lum7671@users.noreply.github.com " }
 ]
 dependencies = [
-    "google-genai>=1.56.0,<2.0.0",
+    "google-genai>2.0.0",
     "python-dotenv",
     "markdown-it-py>=4.0.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.10"
+requires-python = ">= 3.14"
 
 [project.scripts]
 "upsum" = "upsum.__main__:main"
