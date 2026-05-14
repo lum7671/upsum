@@ -7,10 +7,6 @@
 - DietPi 전용 로그: dietpi-update, dietpi-ramlog, dietpi-services 메시지
 - 자원 상태: 디스크/메모리 압력, tmpfs/ramlog로 인한 로그 누락 가능성
 - git repository, podman images 업데이트 현황
-  - 시스템 관리가 필요한 사항
-  - 새로운 버전의 소프트웨어 업데이트
-  - 업데이트 목록은 기본으로 알려주고
-  - changelog 는 가능하면 summary 해줘
 
 요약된 로그 내용:
 ```
