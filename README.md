@@ -1,5 +1,38 @@
 # upsum: Update Summarizer
 
+## 로그 정제 및 분석 품질
+
+upsum은 Gemini AI 요약 품질과 토큰 효율을 극대화하기 위해 아래와 같이 로그를 자동 정제합니다.
+
+- **불필요한 노이즈 제거:**
+   - ANSI 색상 이스케이프(터미널 색상 코드)
+   - git diffstat/파일목록/경로 나열(예: files changed, insertions(+), /usr/local/lib/ 등)
+   - 단독 구분선(─) 및 시각적 박스 라인
+   - 반복되는 -, =, ─ 등 시작부 구분선 문자 축약
+   - 빈줄 및 의미 없는 whitespace
+- **핵심 신호만 보존:**
+   - 업데이트/설치/삭제/버전/패키지명
+   - 경고(WARNING), 오류(ERROR), 실패(FAILED), 성공(SUCCESS)
+   - 서비스 재시작/재로드 결과, DietPi 전용 로그, 자원 상태 신호
+   - git/podman 업데이트 현황
+- **분석 품질:**
+   - 정제 후 로그는 1만~2만자 내외로, Gemini AI 프롬프트 길이 제한(30KB) 내에서 정보 손실 없이 요약 가능
+   - summary/analysis/near_future/actions 등 구조화된 요약에 최적화
+   - 불필요한 토큰 낭비 없이, 운영자/AI 모두 읽기 쉬운 형태로 변환
+
+### 프롬프트 템플릿 안내
+
+보고서 생성 프롬프트(`src/upsum/prompt_template.txt`)는 아래와 같은 특징을 가집니다.
+
+- 20년 경력 Linux 엔지니어 페르소나, DietPi/Raspberry Pi 4B 특화 분석
+- 로그에 없는 내용은 추정하지 않고, 불확실하면 "unknown"으로 표기
+- summary 마지막에 podman/git 업데이트 현황 2줄 필수
+- 경고/오류/실패 신호는 반드시 summary 또는 analysis에 포함
+- 서비스 재시작/자원 상태 신호가 없으면 "없음"으로 명시
+- 모든 필드는 JSON 구조, 마크다운 포맷 지원
+
+이로써 upsum은 실제 운영 환경에서 신뢰도 높은 자동 업데이트 보고서를 제공합니다.
+
 `upsum`은 시스템 업데이트 로그를 분석하고, Gemini AI를 사용하여 요약한 후, 결과를 이메일로 전송하는 파이썬 기반의 CLI 도구입니다. `crontab`과 함께 사용하여 일일 업데이트 보고서를 자동으로 받아보는 데 유용합니다.
 
 ## 주요 기능
