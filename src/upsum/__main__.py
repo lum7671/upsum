@@ -64,6 +64,10 @@ def main():
             parsed_data,
             report_date,
             logger,
+            models=config.gemini_models,
+            attempts_per_model=config.gemini_attempts_per_model,
+            retry_interval_seconds=config.gemini_retry_interval_seconds,
+            http_retry_attempts=config.gemini_http_retry_attempts,
         )
         
         # 5. 구조화된 요약 추가
