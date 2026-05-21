@@ -1,5 +1,38 @@
 # upsum: Update Summarizer
 
+## 로그 정제 및 분석 품질
+
+upsum은 Gemini AI 요약 품질과 토큰 효율을 극대화하기 위해 아래와 같이 로그를 자동 정제합니다.
+
+- **불필요한 노이즈 제거:**
+   - ANSI 색상 이스케이프(터미널 색상 코드)
+   - git diffstat/파일목록/경로 나열(예: files changed, insertions(+), /usr/local/lib/ 등)
+   - 단독 구분선(─) 및 시각적 박스 라인
+   - 반복되는 -, =, ─ 등 시작부 구분선 문자 축약
+   - 빈줄 및 의미 없는 whitespace
+- **핵심 신호만 보존:**
+   - 업데이트/설치/삭제/버전/패키지명
+   - 경고(WARNING), 오류(ERROR), 실패(FAILED), 성공(SUCCESS)
+   - 서비스 재시작/재로드 결과, DietPi 전용 로그, 자원 상태 신호
+   - git/podman 업데이트 현황
+- **분석 품질:**
+   - 정제 후 로그는 1만~2만자 내외로, Gemini AI 프롬프트 길이 제한(30KB) 내에서 정보 손실 없이 요약 가능
+   - summary/analysis/near_future/actions 등 구조화된 요약에 최적화
+   - 불필요한 토큰 낭비 없이, 운영자/AI 모두 읽기 쉬운 형태로 변환
+
+### 프롬프트 템플릿 안내
+
+보고서 생성 프롬프트(`src/upsum/prompt_template.txt`)는 아래와 같은 특징을 가집니다.
+
+- 20년 경력 Linux 엔지니어 페르소나, DietPi/Raspberry Pi 4B 특화 분석
+- 로그에 없는 내용은 추정하지 않고, 불확실하면 "unknown"으로 표기
+- summary 마지막에 podman/git 업데이트 현황 2줄 필수
+- 경고/오류/실패 신호는 반드시 summary 또는 analysis에 포함
+- 서비스 재시작/자원 상태 신호가 없으면 "없음"으로 명시
+- 모든 필드는 JSON 구조, 마크다운 포맷 지원
+
+이로써 upsum은 실제 운영 환경에서 신뢰도 높은 자동 업데이트 보고서를 제공합니다.
+
 `upsum`은 시스템 업데이트 로그를 분석하고, Gemini AI를 사용하여 요약한 후, 결과를 이메일로 전송하는 파이썬 기반의 CLI 도구입니다. `crontab`과 함께 사용하여 일일 업데이트 보고서를 자동으로 받아보는 데 유용합니다.
 
 ## 주요 기능
@@ -77,6 +110,12 @@ cp .env.example .env
 # Google AI Studio에서 발급받은 Gemini API 키 (필수)
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
+# Gemini 안정성 전략 (선택사항)
+GEMINI_MODELS="gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash"
+GEMINI_MODEL_ATTEMPTS_PER_MODEL=3
+GEMINI_RETRY_INTERVAL_SECONDS=300
+GEMINI_HTTP_RETRY_ATTEMPTS=2
+
 # 이메일 발송을 위한 SMTP 서버 정보
 SMTP_HOST="smtp.gmail.com"         # SMTP 서버 주소 (필수)
 SMTP_PORT=587                       # SMTP 포트 번호 (기본값: 587)
@@ -93,6 +132,10 @@ MAIL_TO="recipient@example.com"    # 수신자 주소 (필수)
 | 변수명 | 필수 여부 | 설명 |
 |--------|----------|------|
 | `GEMINI_API_KEY` | ✅ 필수 | Google AI Studio에서 발급받은 API 키 |
+| `GEMINI_MODELS` | 선택 | 모델 폴백 순서(쉼표 구분). 기본값: `gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash` |
+| `GEMINI_MODEL_ATTEMPTS_PER_MODEL` | 선택 | 모델당 최대 시도 횟수. 기본값: `3` |
+| `GEMINI_RETRY_INTERVAL_SECONDS` | 선택 | 같은 모델 재시도 간격(초). 기본값: `300`(5분) |
+| `GEMINI_HTTP_RETRY_ATTEMPTS` | 선택 | SDK 내부 단기 재시도 횟수. 기본값: `2` |
 | `SMTP_HOST` | ✅ 필수 | SMTP 서버 주소 (예: smtp.gmail.com) |
 | `SMTP_PORT` | 선택 | SMTP 포트 (기본값: 587, 1-65535 범위) |
 | `SMTP_USER` | 선택 | SMTP 인증 사용자명 (인증 필요시) |
@@ -194,9 +237,10 @@ JSON 응답은 자동으로 Markdown 형식으로 변환되어 이메일로 전�
    - DietPi 특화 분석 (Raspberry Pi 4B 환경)
 
 4. **Gemini API 호출**:
-   - 모델: `gemini-2.5-flash`
+   - 모델: 환경변수 `GEMINI_MODELS` 순서대로 폴백
    - JSON 스키마 모드로 구조화된 응답 요청
-   - 타임아웃: 30초, 최대 3회 재시도 (지수 백오프)
+   - SDK 단기 재시도: 기본 2회 (408/429/500/502/503/504)
+   - 모델별 장기 재시도: 기본 3회, 5분 간격
 
 5. **응답 처리**:
    - JSON 파싱 (코드 펜스 자동 제거)
@@ -213,8 +257,10 @@ JSON 응답은 자동으로 Markdown 형식으로 변환되어 이메일로 전�
 ### 에러 처리 및 재시도 로직
 
 **Gemini API 재시도:**
-- 최대 3회 시도
-- 대기 시간: 1초 → 2초 → 4초 (지수 백오프)
+- 모델 폴백 체인: `gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-2.0-flash`
+- 모델당 최대 3회 시도 (기본)
+- 모델 내 재시도 간격: 300초(5분, 기본)
+- SDK 내부 단기 재시도: 기본 2회
 - 타임아웃: 30초
 
 **SMTP 재시도:**
@@ -250,14 +296,19 @@ JSON 응답은 자동으로 Markdown 형식으로 변환되어 이메일로 전�
 
 ### 타임아웃 및 재시도 설정 변경
 
-코드에서 다음 상수를 수정하여 동작을 조정할 수 있습니다:
+`.env`에서 다음 값을 조정하면 동작을 변경할 수 있습니다:
 
-**`src/upsum/report.py`:**
-```python
-GEMINI_TIMEOUT_SECONDS = 30    # Gemini API 타임아웃 (초)
-GEMINI_MAX_RETRIES = 3         # 최대 재시도 횟수
-GEMINI_BACKOFF_SECONDS = 2     # 백오프 기본값 (지수 증가)
+```dotenv
+GEMINI_MODELS="gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.0-flash"
+GEMINI_MODEL_ATTEMPTS_PER_MODEL=3
+GEMINI_RETRY_INTERVAL_SECONDS=300
+GEMINI_HTTP_RETRY_ATTEMPTS=2
 ```
+
+- `GEMINI_MODELS`: 모델 폴백 순서
+- `GEMINI_MODEL_ATTEMPTS_PER_MODEL`: 각 모델에서 시도할 횟수
+- `GEMINI_RETRY_INTERVAL_SECONDS`: 같은 모델 재시도 간격(초)
+- `GEMINI_HTTP_RETRY_ATTEMPTS`: SDK 내부 단기 재시도 횟수
 
 **`src/upsum/email_sender.py`:**
 ```python
@@ -294,19 +345,25 @@ ERROR Missing required environment variable: GEMINI_API_KEY
 
 **오류 메시지:**
 ```
-ERROR Gemini API call failed after 3 attempts: Models.generate_content() got an unexpected keyword argument 'generation_config'
+ERROR Gemini API call failed after model fallback chain ... 503 UNAVAILABLE ... high demand
 ```
 
-**원인:** `google-genai` 라이브러리 버전 불일치
+**원인:** Gemini 모델의 일시적 고수요/혼잡 또는 요청량 급증
 
 **해결 방법:**
 ```bash
-# 라이브러리 업데이트
-uv sync --upgrade
+# 재시도 전략 완화(예시)
+GEMINI_MODEL_ATTEMPTS_PER_MODEL=3
+GEMINI_RETRY_INTERVAL_SECONDS=300
+GEMINI_HTTP_RETRY_ATTEMPTS=2
 
-# 또는 특정 버전으로 고정
-# pyproject.toml에서: "google-genai>=1.56.0,<2.0.0"
+# 필요 시 모델 체인을 더 낮은 모델 위주로 조정
+GEMINI_MODELS="gemini-2.5-flash-lite,gemini-2.0-flash"
 ```
+
+추가 점검:
+- API 키/쿼터 제한 여부 확인
+- 최종 에러 로그의 `history=` 항목에서 어떤 모델/시도에서 실패했는지 확인
 
 ### 3. SMTP 인증 실패
 

@@ -1,402 +1,69 @@
-# Copilot Instructions for upsum Project
+# Copilot Instructions for upsum
 
-## Project Overview
+이 문서는 upsum 저장소에서 AI 코딩 에이전트가 빠르게 작업을 시작하기 위한 최소 지침입니다.
+상세 사용자 문서는 README를 우선 확인하고, 여기에는 코드 작업 시 바로 필요한 규칙만 유지합니다.
 
-**upsum (Update Summarizer)** is a Python CLI tool that:
-- Analyzes system update logs (optimized for DietPi on Raspberry Pi 4B)
-- Generates structured Korean-language summaries using Google Gemini AI
-- Sends email reports via SMTP
-- Designed for cron automation for daily update monitoring
+## 1) 프로젝트 한 줄 요약
 
-**Version**: 0.9.0  
-**Target Users**: Linux system administrators (Korean-speaking)  
-**Primary Use Case**: Automated daily system update reports for DietPi/Debian-based systems
+upsum은 시스템 업데이트 로그를 정제하고, Gemini로 한국어 요약 보고서를 생성해 SMTP로 메일 발송하는 Python CLI입니다.
 
-## Architecture & Module Structure
+## 2) 빠른 실행 명령
 
-### Core Modules
-
-```
-src/upsum/
-├── __init__.py          # Package initialization, version management
-├── __main__.py          # Entry point, orchestrates main workflow
-├── config.py            # Configuration management, env var handling, logging setup
-├── logs.py              # Log file discovery and parsing
-├── report.py            # Gemini API integration, JSON→Markdown conversion
-├── email_sender.py      # SMTP email delivery with retry logic
-└── prompt_template.txt  # Gemini prompt template (Korean, customizable)
-```
-
-### Data Flow
-
-```
-CLI Args → Config Loading (.env) 
-  → Log File Discovery (~/logs or --log-dir)
-  → Log Parsing (reboot detection, content extraction)
-  → Prompt Generation (template + log data)
-  → Gemini API Call (JSON schema mode)
-  → JSON Parsing (with fallback to raw text)
-  → Markdown Conversion
-  → Email Sending (SMTP with HTML + Plain Text)
-  → Logging (syslog or stderr)
-```
-
-## Technology Stack
-
-- **Language**: Python 3.10+
-- **Package Manager**: uv (previously Rye, migrated 2026-01-21)
-- **AI Model**: Google Gemini 2.5 Flash (via `google-genai` SDK)
-- **Email**: SMTP with TLS (port 587), multipart MIME (HTML + Plain Text)
-- **Markdown**: `markdown-it-py` for HTML conversion
-- **Environment**: `python-dotenv` for configuration
-- **Logging**: syslog integration (`/dev/log`) with stderr fallback
-
-## Key Design Patterns
-
-### 1. Configuration Management
-- **Pattern**: Dataclass-based config (`AppConfig`, `SmtpConfig`)
-- **Validation**: Required env vars checked at startup, numeric validation for ports
-- **Error Handling**: Custom `ConfigError` exception for config failures
-
-### 2. Retry Logic with Exponential Backoff
-- **Gemini API**: 3 retries, 30s timeout, backoff: 1s → 2s → 4s
-- **SMTP**: 3 retries, 15s timeout, backoff: 1s → 2s → 4s
-- **Authentication Errors**: No retry (fail fast)
-
-### 3. Dependency Injection
-- Logger instances passed to functions (not global)
-- Config objects injected into functions
-- Enables better testability
-
-### 4. Graceful Degradation
-- JSON parsing failures → fallback to raw text
-- Syslog unavailable → stderr logging
-- Template file missing → explicit error (no silent failure)
-
-## Environment Variables
-
-### Required
-- `GEMINI_API_KEY`: Google AI Studio API key
-- `SMTP_HOST`: SMTP server address
-- `MAIL_TO`: Recipient email address
-
-### Optional
-- `SMTP_PORT`: Default 587
-- `SMTP_USER`: SMTP authentication username
-- `SMTP_PASSWORD`: SMTP password (Gmail app password recommended)
-- `MAIL_FROM`: Sender email (default: upsum@example.com)
-
-## Code Conventions
-
-### Error Handling
-- Use `ConfigError` for configuration-related failures
-- Log warnings for retryable errors
-- Log errors for final failures
-- Exit codes: 0 (success), 1 (failure)
-- Always include context in error messages (Korean for user-facing errors)
-
-### Logging
-- **INFO**: Normal operation milestones
-- **WARNING**: Retryable errors, non-critical issues
-- **ERROR**: Fatal errors, final retry failures
-- Format: `"upsum: %(levelname)s %(message)s"`
-
-### Naming Conventions
-- Functions: `snake_case`
-- Classes: `PascalCase`
-- Constants: `UPPER_SNAKE_CASE` (e.g., `GEMINI_TIMEOUT_SECONDS`)
-- Private functions: prefix with `_` (e.g., `_get_env`, `_call_gemini`)
-
-### Type Hints
-- Use type hints for function parameters and return values
-- Use `Optional[T]` for nullable types
-- Import from `typing` module: `Optional`, `Any`, etc.
-
-## Critical Implementation Details
-
-### Gemini API Integration (report.py)
-
-**Current Known Issue (2026-01-21):**
-```
-ERROR: Models.generate_content() got an unexpected keyword argument 'generation_config'
-```
-- **Cause**: `google-genai` library API changed
-- **Current Code**: Uses `generation_config` parameter
-- **Fix Needed**: Update to match latest `google-genai` SDK API
-
-**JSON Schema (required fields):**
-```python
-{
-    "title": str,              # Report title with date
-    "reboot_required": str,    # Reboot necessity status
-    "summary": str,            # Factual summary of updates
-    "analysis": str,           # Analysis of log data
-    "near_future": str,        # Monitoring items, predictions
-    "actions": list[str]       # Prioritized admin action items
-}
-```
-
-**Model Configuration:**
-- Model: `gemini-2.5-flash`
-- Response format: `application/json`
-- Response schema: See `json_schema` in `generate_summary_with_gemini()`
-- Timeout handling: Catches `TypeError` for compatibility
-
-### Email Sending (email_sender.py)
-
-**MIME Structure:**
-```
-MIMEMultipart("alternative")
-├── MIMEText(body, "plain", "utf-8")    # Plain text version
-└── MIMEText(html_body, "html", "utf-8") # HTML version (Markdown→HTML)
-```
-
-**SMTP Flow:**
-1. Connect to SMTP server with timeout
-2. STARTTLS if port 587
-3. Login if credentials provided
-4. Send multipart message
-5. Close connection
-
-**Authentication Errors:**
-- `SMTPAuthenticationError`: No retry, immediate failure
-- Other exceptions: Retry with exponential backoff
-
-### Log Parsing (logs.py)
-
-**Reboot Detection:**
-- Keywords: `"reboot is required"`, `"rebooting"` (case-insensitive)
-- Returns boolean flag
-
-**Log Size Management:**
-- Checks for special markers: `"상세 업데이트 내역:"`, `"업데이트 내역:"`
-- If present: return full content
-- If > 3000 chars: truncate with `"[로그가 길어서 일부만 표시됨]"`
-
-## Testing & Development
-
-### Dry Run Mode
 ```bash
+# 의존성 동기화
+uv sync
+
+# 기본 실행
+uv run upsum
+
+# 메일 미발송 테스트
 uv run upsum --dry-run
-```
-- Skips email sending
-- Prints summary to console
-- Use for testing prompt changes, API integration
 
-### Local Testing
-```bash
-# Test with specific log file
-uv run upsum --log-file /path/to/test.log --dry-run
-
-# Test with different log directory
-uv run upsum --log-dir /var/log/apt --dry-run
+# 특정 로그 파일 테스트
+uv run upsum --log-file /absolute/path/to/log.log --dry-run
 ```
 
-### Debugging Gemini Responses
-- Check `parse_json_response()` for JSON cleaning logic
-- Removes code fences: ` ```json`, ` ``` `
-- Logs warnings on parse failures
+## 3) 코드 경계 (수정 위치 가이드)
 
-## Prompt Template Customization
+- src/upsum/__main__.py: 메인 오케스트레이션 (arg -> config -> logs -> report -> email)
+- src/upsum/config.py: 인자 파싱, .env 로딩, ConfigError, 로거 생성
+- src/upsum/logs.py: 로그 탐색/정제, reboot 감지, 프롬프트 입력용 로그 요약
+- src/upsum/report.py: Gemini 호출, JSON 파싱/검증, Markdown 변환
+- src/upsum/email_sender.py: SMTP 전송, HTML/Plain 멀티파트 구성, 재시도
+- src/upsum/prompt_template.txt: 요약 프롬프트 템플릿
 
-**File**: `src/upsum/prompt_template.txt`
+## 4) 변경 시 반드시 지킬 규칙
 
-**Placeholders:**
-- `{formatted_date}`: YYYY년 MM월 DD일 format
-- `{log_content}`: Parsed log content
-- `{reboot_text}`: Reboot requirement message
-- `{dietpi_release_notes}`: Auto-detected DietPi version notes
+- 사용자 메시지는 한국어 중심으로 유지합니다.
+- 민감정보(API 키, SMTP 비밀번호)를 로그로 남기지 않습니다.
+- 설정 실패는 ConfigError로 처리해 종료 코드 1을 보장합니다.
+- 재시도 정책은 기존 지수 백오프 패턴을 유지합니다.
+- 파일 경로는 Path 기반으로 처리하고, 템플릿은 모듈 기준 상대 경로를 사용합니다.
 
-**Persona**: 20-year Linux sysadmin, DietPi specialist, Korean output
+## 5) 자주 깨지는 포인트
 
-**Output Requirements**: 
-- Fact-based reporting
-- Korean language
-- JSON structure adherence
-- Actionable recommendations
+- prompt_template.txt에서 중괄호는 str.format 충돌을 일으킬 수 있습니다.
+  - 템플릿 본문에서 리터럴 중괄호가 필요하면 {{ 및 }} 로 이스케이프합니다.
+- logs.py의 정규식 정제 규칙 변경 시 핵심 업데이트 라인이 삭제되지 않는지 확인합니다.
+- JSON 파싱 실패 fallback 동작(response.text 반환)을 제거하지 않습니다.
 
-## Common Pitfalls to Avoid
+## 6) 빠른 검증 체크리스트
 
-### 1. ❌ Don't hardcode configuration
-```python
-# BAD
-api_key = "sk-abc123..."  
+코드 변경 후 최소 아래를 확인합니다.
 
-# GOOD
-api_key = config.gemini_api_key
-```
+1. uv run upsum --dry-run
+2. 오류 발생 시 로그에 원인과 재시도 횟수가 드러나는지 확인
+3. 생성된 요약 Markdown 구조(제목/섹션/액션 목록) 확인
 
-### 2. ❌ Don't use global logger
-```python
-# BAD
-logger = logging.getLogger("upsum")
-def some_function():
-    logger.info("...")
+## 7) 참조 문서 (링크 우선)
 
-# GOOD
-def some_function(logger):
-    logger.info("...")
-```
+- 사용자 설치/운영 가이드: [README.md](../README.md)
+- 작업 백로그: [TODO.md](../TODO.md)
+- 로그 샘플: [logs/update_all-20260515_023109.log.001](../logs/update_all-20260515_023109.log.001)
+- 샘플 보고서: [src/upsum/sample_report.md](../src/upsum/sample_report.md)
 
-### 3. ❌ Don't ignore retry failures
-```python
-# BAD
-try:
-    api_call()
-except:
-    pass  # Silent failure
+## 8) 에이전트 작업 원칙
 
-# GOOD
-for attempt in range(MAX_RETRIES):
-    try:
-        api_call()
-        break
-    except Exception as e:
-        if attempt == MAX_RETRIES - 1:
-            logger.error(f"Failed after {MAX_RETRIES} attempts: {e}")
-            raise
-```
-
-### 4. ❌ Don't mix Korean and English in user-facing messages
-```python
-# BAD
-logger.error(f"SMTP authentication failed for {user}")
-
-# GOOD (user-facing)
-logger.error(f"SMTP 인증 실패. 사용자 이름과 비밀번호를 확인해주세요.")
-
-# GOOD (technical/debug)
-logger.warning(f"Gemini API call failed (attempt {attempt}/{max}); retrying in {wait}s: {e}")
-```
-
-### 5. ❌ Don't assume file paths
-```python
-# BAD
-template_path = "prompt_template.txt"
-
-# GOOD
-template_path = Path(__file__).parent / "prompt_template.txt"
-```
-
-## File Modification Guidelines
-
-### When Editing config.py
-- Validate all input (env vars, port numbers, paths)
-- Use `_get_env()` helper for consistency
-- Add new fields to appropriate dataclass
-- Update README.md environment variables table
-
-### When Editing report.py
-- Test JSON schema changes with `--dry-run`
-- Update `convert_json_to_markdown()` for new fields
-- Consider Gemini API rate limits
-- Keep retry logic consistent
-
-### When Editing email_sender.py
-- Test with `--dry-run` first
-- Verify both HTML and plain text rendering
-- Don't change retry logic without updating constants
-- Log all SMTP errors clearly
-
-### When Editing logs.py
-- Consider log file size impacts
-- Test reboot detection with various log formats
-- Don't break existing keyword detection
-
-## Security Considerations
-
-### API Key Management
-- Never log API keys (even partially)
-- Never commit `.env` file
-- Recommend `chmod 600 .env` in docs
-- Use environment variables, never hardcode
-
-### Email Security
-- Recommend Gmail app passwords (not account passwords)
-- Support STARTTLS (port 587)
-- Don't log SMTP passwords
-- Validate SMTP_PORT range (1-65535)
-
-### Log File Handling
-- Don't execute log file contents
-- Sanitize paths before file operations
-- Check file existence before reading
-- Handle malformed log files gracefully
-
-## Known Issues & TODOs
-
-### Active Issues (2026-01-21)
-1. **Gemini API `generation_config` error**: Library version incompatibility
-   - Error: `Models.generate_content() got an unexpected keyword argument 'generation_config'`
-   - See: logs in `all_2026-1-21-10_36_28.csv`
-   - Fix: Update `google-genai` SDK usage in `report.py`
-
-### TODO (from TODO.md)
-- [ ] Cache prompt template in memory (avoid repeated disk I/O)
-- [ ] Add type hints across all functions
-- [ ] Add unit/integration tests with fixture logs
-- [ ] Implement token-aware log truncation (smarter than 3000 chars)
-- [ ] Optional archive feature: save sent reports to `--archive-dir`
-
-### Future Enhancements
-- [ ] Support multiple log file formats (apt, yum, pacman)
-- [ ] Add email attachment option (original log file)
-- [ ] Implement log diff reporting (compare with previous day)
-- [ ] Add web dashboard for report history
-- [ ] Support multiple recipients
-- [ ] Add Slack/Discord notification options
-
-## Dependencies
-
-```toml
-dependencies = [
-    "google-genai",           # Gemini API client (version not pinned - TODO)
-    "python-dotenv",          # Environment variable management
-    "markdown-it-py>=4.0.0",  # Markdown to HTML conversion
-]
-```
-
-**Note**: Consider pinning `google-genai` version to avoid API breaking changes.
-
-## Deployment Notes
-
-### Cron Usage
-- Use absolute paths for `uv` executable
-- Change to project directory with `cd` before running
-- Redirect output to log file: `> /path/to/upsum_cron.log 2>&1`
-- Ensure `.env` file is readable by cron user
-
-**Example crontab:**
-```crontab
-0 4 * * * cd /home/dietpi/git/upsum && /home/dietpi/.local/bin/uv run upsum > /home/dietpi/logs/upsum_cron.log 2>&1
-```
-
-### System Requirements
-- Python 3.10+
-- Linux or macOS (tested on DietPi/Raspberry Pi 4B)
-- Internet connectivity (Gemini API, SMTP)
-- Syslog support (optional, falls back to stderr)
-
-## Contributing Guidelines
-
-When adding new features:
-1. Update `__version__` in `__init__.py`
-2. Add corresponding tests (when test framework added)
-3. Update README.md with usage examples
-4. Update this Copilot instructions file
-5. Add TODO items to TODO.md if incomplete
-6. Maintain Korean language for user-facing output
-7. Follow existing error handling patterns
-8. Add logging for significant operations
-
-## Contact & Maintenance
-
-**Author**: Nate Doohyun Jang  
-**Repository**: https://github.com/lum7671/upsum  
-**Target Audience**: Korean-speaking Linux sysadmins  
-**Support**: DietPi on Raspberry Pi 4B (primary), general Debian-based systems (secondary)
-
----
-
-**Last Updated**: 2026-01-21  
-**Copilot Version**: This file is for GitHub Copilot context enhancement
+- 큰 리팩터링보다 작은 단위 변경을 우선합니다.
+- 기존 공개 인터페이스(CLI 옵션, env 변수명)를 불필요하게 바꾸지 않습니다.
+- README와 동작이 어긋나는 변경을 하면 README도 함께 업데이트합니다.
