@@ -5,7 +5,7 @@ from .config import AppConfig, ConfigError, get_logger, load_config, parse_args
 from .email_sender import send_email
 from .logs import find_latest_log_file
 from .report import formatted_today, generate_summary_with_gemini
-from .log_preprocess import run_preprocess_pipeline, get_reboot_decision, load_summary_markdown
+from .log_preprocess import run_preprocess_pipeline, get_reboot_decision
 
 
 def resolve_log_file(config: AppConfig) -> Path:
@@ -36,15 +36,13 @@ def main():
 
         logger.info(f"Processing log file: {target_log_file}")
         
-        # 1. 로그 전처리 (노이즈 제거 → 이벤트 구조화 → 요약 생성)
-        logger.info("Preprocessing log: cleaner → parser → generator")
+        # 1. 로그 전처리 (노이즈 제거)
+        logger.info("Preprocessing log: cleaner")
         preprocess_results = run_preprocess_pipeline(target_log_file)
         cleaned_log = preprocess_results['cleaned']
-        events_file = preprocess_results['events']
-        summary_file = preprocess_results['summary']
         
         # 2. 재부팅/재시작 판정 추출
-        decision = get_reboot_decision(events_file)
+        decision = get_reboot_decision(cleaned_log)
         logger.info(f"Reboot needed: {decision['reboot_needed']}, Restart needed: {decision['restart_needed']}")
         
         # 3. 전처리된 로그(.001.cleaned.log) 읽기
@@ -69,11 +67,6 @@ def main():
             retry_interval_seconds=config.gemini_retry_interval_seconds,
             http_retry_attempts=config.gemini_http_retry_attempts,
         )
-        
-        # 5. 구조화된 요약 추가
-        structured_summary = load_summary_markdown(summary_file)
-        if structured_summary:
-            summary += "\n\n---\n\n## 구조화된 요약\n" + structured_summary
         
         # 6. 재부팅/재시작 필요 여부 추가
         judgment = "\n\n---\n\n## 시스템 판정\n"

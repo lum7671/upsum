@@ -10,21 +10,43 @@ PATTERNS_TO_REMOVE = [
     r"^debconf:.*$",                           # debconf 경고
     r"^\s*\[[  \.OK]*\].*$",                   # 진행 바
     r"^(패키지 목록을|의존성 트리를|상태 정보를).*$",  # 반복 메시지
+    r"^패키지 목록을 읽는 중입니다.*$",             # apt 진행 메시지
+    r"^의존성 트리를 만드는 중입니다.*$",           # apt 진행 메시지
+    r"^상태 정보를 읽는 중입니다.*$",               # apt 진행 메시지
     r"^(기존|받기):[0-9]+ .*$",                # apt 인덱스 라인
+    r"^(Hit|Get):.*$",                         # apt 인덱스 라인 (영문)
+    r"^Fetched .*$",                           # apt fetch 요약
+    r"^Reading package lists.*$",              # apt 진행 메시지 (영문)
     r"^내려받기 [\d.]+ [a-zA-Z가-힣]+.*$",     # 다운로드 진행
     r"^\(?데이터베이스 읽는중 \.\.\..*$",       # dpkg 진행률 라인
     r"^Copying blob sha256:.*$",              # podman blob 복사 로그
+    r"^15 packages are looking for funding.*$",  # npm 안내
+    r"^run `npm fund` for details.*$",          # npm 안내
+    r"^changed \d+ packages in .*$",             # npm 변경 요약
+    r"^이미 업데이트 상태입니다.*$",                # 무변경 안내
+    r"^default -> lts/\*.*$",                    # node alias 안내
+    r"^origin을\(를\) 가져오는 중.*$",            # git fetch 진행
+    r"^upstream을\(를\) 가져오는 중.*$",          # git fetch 진행
     r"^╔.*╗$",                                # 박스 상단 라인
     r"^╚.*╝$",                                # 박스 하단 라인
     r"^files changed.*$",                     # git diffstat
     r"^insertions\(\+\).*$",                # git diffstat
     r"^deletions\(-\).*$",                   # git diffstat
+    r"^\s*\|\s*\d+ files changed.*$",          # git diffstat
+    r"^\s*\|\s*\d+ insertions\(\+\).*$",      # git diffstat
+    r"^\s*\|\s*\d+ deletions\(-\).*$",         # git diffstat
     r"^create mode.*$",                       # git diffstat
     r"^/usr/local/lib/.*$",                   # 경로 나열
     r"^/usr/local/include/.*$",               # 경로 나열
     r"^\* \[새로운 브랜치\].*$",               # git 브랜치
     r"^\* \[새로운 태그\].*$",                 # git 태그
     r"^\+ [0-9a-f]{7,}.*$",                  # git 강제 업데이트
+    r"^\- \[삭제됨\].*$",                      # git 삭제 브랜치/태그
+    r"^\s*Fast-forward$",                     # git fast-forward 단독행
+    r"^\s*UN.*CHANGED.*$",                    # unchanged 요약행
+    r"^\s*SUCCESS: .+ updated$",              # 성공 요약행
+    r"^\s*SUCCESS: .+$",                      # 성공 요약행
+    r"^\s*ERROR: .+$",                        # 상세 오류는 상위 리포트에서 처리
     r"^─+$",                                  # 단독 ─ 라인
 ]
 
