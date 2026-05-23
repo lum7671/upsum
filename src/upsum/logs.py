@@ -35,20 +35,26 @@ PATTERNS_TO_REMOVE = [
     r"^\s*\|\s*\d+ files changed.*$",          # git diffstat
     r"^\s*\|\s*\d+ insertions\(\+\).*$",      # git diffstat
     r"^\s*\|\s*\d+ deletions\(-\).*$",         # git diffstat
-    r"^create mode.*$",                       # git diffstat
-    r"^/usr/local/lib/.*$",                   # 경로 나열
-    r"^/usr/local/include/.*$",               # 경로 나열
+    # Git 상세 파일 변경(diffstat) 제거 패턴 추가
+    r"^.+\s+\|\s*(\d+|Bin)\b.*$",              # 예: README.md | 9 ++-- 제거
+    r"^\d+ files?\s+changed.*$",               # 예: 25 files changed... 제거
+    r"^(create|delete|rename) mode\s+\d+.*$",  # 예: create mode 100644 ... 제거
+    # /usr/local/lib 및 /usr/local/include 경로 나열은 주석 처리하여 보존
+    # r"^/usr/local/lib/.*$",                   # 경로 나열
+    # r"^/usr/local/include/.*$",               # 경로 나열
     r"^\* \[새로운 브랜치\].*$",               # git 브랜치
     r"^\* \[새로운 태그\].*$",                 # git 태그
     r"^\+ [0-9a-f]{7,}.*$",                  # git 강제 업데이트
     r"^\- \[삭제됨\].*$",                      # git 삭제 브랜치/태그
     r"^\s*Fast-forward$",                     # git fast-forward 단독행
-    r"^\s*UN.*CHANGED.*$",                    # unchanged 요약행
+    # UNCHANGED와 ERROR 요약 라인은 주석 처리하여 보존
+    # r"^\s*UN.*CHANGED.*$",                    # unchanged 요약행
     r"^\s*SUCCESS: .+ updated$",              # 성공 요약행
     r"^\s*SUCCESS: .+$",                      # 성공 요약행
-    r"^\s*ERROR: .+$",                        # 상세 오류는 상위 리포트에서 처리
+    # r"^\s*ERROR: .+$",                        # 상세 오류는 상위 리포트에서 처리
     r"^─+$",                                  # 단독 ─ 라인
 ]
+
 
 
 # 시작부 반복 문자를 1개로 축약할 대상
