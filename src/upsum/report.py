@@ -11,7 +11,8 @@ from .logs import summarize_log_for_prompt
 
 
 GEMINI_TIMEOUT_SECONDS = 30
-GEMINI_DEFAULT_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
+# GEMINI_DEFAULT_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
+GEMINI_DEFAULT_MODELS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
 GEMINI_DEFAULT_ATTEMPTS_PER_MODEL = 3
 GEMINI_DEFAULT_RETRY_INTERVAL_SECONDS = 300
 GEMINI_DEFAULT_HTTP_RETRY_ATTEMPTS = 2
