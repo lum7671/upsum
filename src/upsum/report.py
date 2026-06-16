@@ -11,7 +11,12 @@ from .logs import summarize_log_for_prompt
 
 
 GEMINI_TIMEOUT_SECONDS = 30
-GEMINI_DEFAULT_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
+# 2026년 6월 현재 기준 최신 Flash 라인업으로 수정
+GEMINI_DEFAULT_MODELS = [
+    "gemini-3.5-flash",        # 현재 가장 최신이자 기본이 되는 에이전트/코딩 특화 모델
+    "gemini-3.1-flash-lite",   # 고처리량, 저비용에 최적화된 최신 라이트 모델
+    "gemini-2.5-flash"         # 안정적인 프로덕션용 2.5세대 기본 모델
+]
 GEMINI_DEFAULT_ATTEMPTS_PER_MODEL = 3
 GEMINI_DEFAULT_RETRY_INTERVAL_SECONDS = 300
 GEMINI_DEFAULT_HTTP_RETRY_ATTEMPTS = 2
