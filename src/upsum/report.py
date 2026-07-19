@@ -6,21 +6,29 @@ from pathlib import Path
 from typing import Any, Optional
 
 import google.genai as genai
+from pydantic import BaseModel, Field
 
 from .logs import summarize_log_for_prompt
 
 
 GEMINI_TIMEOUT_SECONDS = 30
-# 2026년 6월 현재 기준 최신 Flash 라인업으로 수정
 GEMINI_DEFAULT_MODELS = [
-    "gemini-3.5-flash",        # 현재 가장 최신이자 기본이 되는 에이전트/코딩 특화 모델
-    "gemini-3.1-flash-lite",   # 고처리량, 저비용에 최적화된 최신 라이트 모델
-    "gemini-2.5-flash"         # 안정적인 프로덕션용 2.5세대 기본 모델
+    "gemini-3.5-flash",        # 기본 모델
+    "gemini-2.5-flash"         # 폴백 모델
 ]
 GEMINI_DEFAULT_ATTEMPTS_PER_MODEL = 3
 GEMINI_DEFAULT_RETRY_INTERVAL_SECONDS = 300
 GEMINI_DEFAULT_HTTP_RETRY_ATTEMPTS = 2
 GEMINI_RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+class UpdateReportSchema(BaseModel):
+    title: str = Field(description="보고서 제목 (예: YYYY년 MM월 DD일 시스템 업데이트 보고서)")
+    reboot_required: str = Field(description="재부팅 필요 여부 (예: 시스템 재부팅이 필요하지 않습니다. / 시스템 재부팅이 필요합니다.)")
+    summary: str = Field(description="단순 요약(팩트): 주요 업데이트, 버전 변경, 캐시 정리 등")
+    analysis: str = Field(description="분석: 버전 최신화 상태, 경고, 운영 영향")
+    near_future: str = Field(description="가까운 미래/예상: 모니터링 항목, 예상 업데이트")
+    actions: list[str] = Field(description="관리자 액션: 우선순위별 작업")
 
 
 def formatted_today() -> str:
@@ -127,7 +135,12 @@ def generate_summary_with_gemini(
     """Generate JSON-structured summary via Gemini and return markdown."""
     client = genai.Client(api_key=api_key)
 
-    active_models = models if models else GEMINI_DEFAULT_MODELS
+    if isinstance(models, str):
+        active_models = [m.strip() for m in models.split(",") if m.strip()]
+    elif models:
+        active_models = models
+    else:
+        active_models = GEMINI_DEFAULT_MODELS
 
     reboot_text = "시스템 재부팅이 필요합니다." if parsed_data["reboot_required"] else "시스템 재부팅이 필요하지 않습니다."
 
@@ -154,27 +167,10 @@ def generate_summary_with_gemini(
         dietpi_release_notes=dietpi_release_notes,
     )
 
-    json_schema = {
-        "type": "object",
-        "properties": {
-            "title": {"type": "string", "description": "보고서 제목"},
-            "reboot_required": {"type": "string", "description": "재부팅 필요 여부"},
-            "summary": {"type": "string", "description": "단순 요약(팩트): 주요 업데이트, 버전 변경, 캐시 정리 등"},
-            "analysis": {"type": "string", "description": "분석: 버전 최신화 상태, 경고, 운영 영향"},
-            "near_future": {"type": "string", "description": "가까운 미래/예상: 모니터링 항목, 예상 업데이트"},
-            "actions": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "관리자 액션: 우선순위별 작업",
-            },
-        },
-        "required": ["title", "reboot_required", "summary", "analysis", "near_future", "actions"],
-    }
-
     def _call_gemini(model_name: str):
         config = genai.types.GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=json_schema,
+            response_schema=UpdateReportSchema,
             http_options=genai.types.HttpOptions(
                 timeout=GEMINI_TIMEOUT_SECONDS * 1000,
                 retry_options=genai.types.HttpRetryOptions(
@@ -259,7 +255,12 @@ def generate_summary_with_gemini(
         )
         raise RuntimeError("Gemini API call failed after model fallback chain") from last_error
 
-    json_response = parse_json_response(response.text, logger)
-    if json_response:
-        return convert_json_to_markdown(json_response)
-    return response.text
+    try:
+        report_data = UpdateReportSchema.model_validate_json(response.text.strip())
+        return convert_json_to_markdown(report_data.model_dump())
+    except Exception as e:
+        logger.warning(f"Failed to validate response as schema: {e}. Falling back to default parser.")
+        json_response = parse_json_response(response.text, logger)
+        if json_response:
+            return convert_json_to_markdown(json_response)
+        return response.text

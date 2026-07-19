@@ -6,22 +6,20 @@ authors = [
     { name = "Nate Doohyun Jang", email = "1220430+lum7671@users.noreply.github.com" }
 ]
 dependencies = [
-    "google-genai>2.0.0",
-    "python-dotenv",
+    "google-genai>=2.12.1",
+    "jinja2>=3.1.6",
     "markdown-it-py>=4.0.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "python-dotenv>=1.2.2",
 ]
 readme = "README.md"
-requires-python = ">= 3.14"
+requires-python = ">=3.13.2"
 
 [project.scripts]
-"upsum" = "upsum.__main__:main"
+upsum = "upsum.__main__:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/upsum"]

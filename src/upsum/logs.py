@@ -61,12 +61,12 @@ PATTERNS_TO_REMOVE = [
 LEADING_REPEAT_CHARS = ["-", "=", "─"]
 
 
-def find_latest_log_file(log_dir: Path) -> Optional[Path]:
-    """Return the most recent log file in the given directory."""
+def find_latest_log_file(log_dir: Path, pattern: str = "update_all*.log") -> Optional[Path]:
+    """Return the most recent log file matching pattern in the given directory."""
     if not log_dir.exists() or not log_dir.is_dir():
         raise FileNotFoundError(f"Log directory not found: {log_dir}")
 
-    list_of_files = glob.glob(str(log_dir / "*"))
+    list_of_files = glob.glob(str(log_dir / pattern))
     if not list_of_files:
         return None
 

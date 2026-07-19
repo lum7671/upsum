@@ -229,7 +229,7 @@ JSON 응답은 자동으로 Markdown 형식으로 변환되어 이메일로 전�
 
 2. **로그 파싱**: 
    - 재부팅 필요 여부 감지 (`reboot is required`, `rebooting` 키워드 검색)
-   - 로그 내용 전체를 읽어들입니다 (3000자 초과 시 요약)
+   - 로그 내용 전체를 읽어들입니다 (30000자 초과 시 요약)
 
 3. **프롬프트 생성**: 
    - `src/upsum/prompt_template.txt` 템플릿에 로그 데이터 삽입
@@ -319,11 +319,11 @@ SMTP_BACKOFF_SECONDS = 2       # 백오프 기본값 (지수 증가)
 
 ### 로그 크기 제한 조정
 
-기본적으로 3000자가 넘는 로그는 자동으로 잘립니다. 이를 변경하려면 `src/upsum/logs.py`의 `summarize_log_for_prompt()` 함수를 수정하세요:
+기본적으로 30000자가 넘는 로그는 자동으로 잘립니다. 이를 변경하려면 `src/upsum/logs.py`의 `summarize_log_for_prompt()` 함수를 수정하세요:
 
 ```python
-if len(log_content) > 3000:  # 이 값을 변경
-    return log_content[:3000] + "\n\n[로그가 길어서 일부만 표시됨]"
+if len(log_content) > 30000:  # 이 값을 변경
+    return log_content[:30000] + "\n\n[로그가 30KB 이상 길어 앞부분만 표시됨]"
 ```
 
 ## 문제 해결 (Troubleshooting)

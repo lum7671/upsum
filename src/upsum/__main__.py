@@ -1,14 +1,14 @@
 import sys
 from pathlib import Path
 
-from .config import AppConfig, ConfigError, get_logger, load_config, parse_args
+from .config import AppSettings, ConfigError, get_logger, load_config, parse_args
 from .email_sender import send_email
 from .logs import find_latest_log_file
 from .report import formatted_today, generate_summary_with_gemini
 from .log_preprocess import run_preprocess_pipeline, get_reboot_decision
 
 
-def resolve_log_file(config: AppConfig) -> Path:
+def resolve_log_file(config: AppSettings) -> Path:
     """Determine which log file to process, honoring overrides."""
     if config.log_file:
         if not config.log_file.exists():
@@ -16,12 +16,14 @@ def resolve_log_file(config: AppConfig) -> Path:
         return config.log_file
 
     try:
-        latest = find_latest_log_file(config.log_dir)
+        latest = find_latest_log_file(config.log_dir, pattern="update_all*.log")
     except FileNotFoundError as e:
         raise ConfigError(str(e))
 
     if not latest:
-        raise ConfigError(f"No log files found in {config.log_dir}. Nothing to do.")
+        raise ConfigError(
+            f"No log files matching 'update_all*.log' found in {config.log_dir}. Nothing to do."
+        )
     return latest
 
 
@@ -62,7 +64,7 @@ def main():
             parsed_data,
             report_date,
             logger,
-            models=config.gemini_models,
+            models=config.gemini_model_list,
             attempts_per_model=config.gemini_attempts_per_model,
             retry_interval_seconds=config.gemini_retry_interval_seconds,
             http_retry_attempts=config.gemini_http_retry_attempts,
@@ -90,5 +92,5 @@ def main():
         logger.error(e)
         sys.exit(1)
     except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}", exc_info=True)
         sys.exit(1)
