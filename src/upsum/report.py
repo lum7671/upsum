@@ -133,7 +133,7 @@ def generate_summary_with_gemini(
     http_retry_attempts: int = GEMINI_DEFAULT_HTTP_RETRY_ATTEMPTS,
 ) -> str:
     """Generate JSON-structured summary via Gemini and return markdown."""
-    client = genai.Client(api_key=api_key)
+    from .gemini_model_manager import DynamicGeminiManager
 
     if isinstance(models, str):
         active_models = [m.strip() for m in models.split(",") if m.strip()]
@@ -141,6 +141,9 @@ def generate_summary_with_gemini(
         active_models = models
     else:
         active_models = GEMINI_DEFAULT_MODELS
+
+    if any(m.lower() in ("auto", "dynamic") for m in active_models):
+        active_models = None
 
     reboot_text = "시스템 재부팅이 필요합니다." if parsed_data["reboot_required"] else "시스템 재부팅이 필요하지 않습니다."
 
@@ -167,93 +170,30 @@ def generate_summary_with_gemini(
         dietpi_release_notes=dietpi_release_notes,
     )
 
-    def _call_gemini(model_name: str):
-        config = genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=UpdateReportSchema,
-            http_options=genai.types.HttpOptions(
-                timeout=GEMINI_TIMEOUT_SECONDS * 1000,
-                retry_options=genai.types.HttpRetryOptions(
-                    attempts=http_retry_attempts,
-                    http_status_codes=sorted(GEMINI_RETRYABLE_STATUS_CODES),
-                ),
+    call_config = genai.types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=UpdateReportSchema,
+        http_options=genai.types.HttpOptions(
+            timeout=GEMINI_TIMEOUT_SECONDS * 1000,
+            retry_options=genai.types.HttpRetryOptions(
+                attempts=http_retry_attempts,
+                http_status_codes=sorted(GEMINI_RETRYABLE_STATUS_CODES),
             ),
+        ),
+    )
+
+    manager = DynamicGeminiManager(api_key=api_key)
+
+    try:
+        response, used_model = manager.generate_content_with_fallback(
+            prompt=prompt,
+            preferred_models=active_models,
+            config=call_config
         )
-
-        request_kwargs = {
-            "model": model_name,
-            "contents": prompt,
-            "config": config,
-        }
-
-        return client.models.generate_content(**request_kwargs)
-
-    started_at = time.monotonic()
-    attempt_history: list[str] = []
-    last_error: Optional[Exception] = None
-    response = None
-
-    for model_index, model_name in enumerate(active_models, start=1):
-        logger.info(
-            f"Gemini model attempt chain start: {model_name} "
-            f"({model_index}/{len(active_models)}), max attempts {attempts_per_model}"
-        )
-
-        for attempt_index in range(1, attempts_per_model + 1):
-            try:
-                response = _call_gemini(model_name)
-                elapsed = int(time.monotonic() - started_at)
-                logger.info(
-                    f"Gemini call succeeded with model {model_name} "
-                    f"on attempt {attempt_index}/{attempts_per_model} after {elapsed}s"
-                )
-                break
-            except Exception as error:
-                last_error = error
-                status_code = _extract_status_code(error)
-                retryable = _is_retryable_error(error)
-                attempt_history.append(
-                    f"{model_name}#{attempt_index}(status={status_code or 'unknown'}, retryable={retryable})"
-                )
-
-                if not retryable:
-                    logger.error(
-                        f"Gemini call failed with non-retryable error "
-                        f"on model {model_name}, attempt {attempt_index}/{attempts_per_model}: {error}"
-                    )
-                    raise
-
-                model_exhausted = attempt_index == attempts_per_model
-                all_models_exhausted = model_exhausted and model_index == len(active_models)
-
-                if all_models_exhausted:
-                    break
-
-                if model_exhausted:
-                    logger.warning(
-                        f"Gemini model {model_name} exhausted after {attempts_per_model} attempts; "
-                        "falling back to next model"
-                    )
-                    break
-
-                logger.warning(
-                    f"Gemini API call failed (model={model_name}, attempt={attempt_index}/{attempts_per_model}); "
-                    f"retrying in {retry_interval_seconds}s: {error}"
-                )
-                if retry_interval_seconds > 0:
-                    time.sleep(retry_interval_seconds)
-
-        if response is not None:
-            break
-
-    if response is None:
-        elapsed = int(time.monotonic() - started_at)
-        history_text = ", ".join(attempt_history) if attempt_history else "no-attempt-history"
-        logger.error(
-            "Gemini API call failed after model fallback chain "
-            f"(elapsed={elapsed}s, history={history_text}): {last_error}"
-        )
-        raise RuntimeError("Gemini API call failed after model fallback chain") from last_error
+        logger.info(f"Gemini call succeeded using model {used_model}")
+    except Exception as e:
+        logger.error(f"Gemini API call failed after dynamic model fallback chain: {e}")
+        raise RuntimeError("Gemini API call failed after dynamic model fallback chain") from e
 
     try:
         report_data = UpdateReportSchema.model_validate_json(response.text.strip())
@@ -264,3 +204,4 @@ def generate_summary_with_gemini(
         if json_response:
             return convert_json_to_markdown(json_response)
         return response.text
+
