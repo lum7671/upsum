@@ -31,9 +31,12 @@ class UpdateReportSchema(BaseModel):
     actions: list[str] = Field(description="관리자 액션: 우선순위별 작업")
 
 
+KST = datetime.timezone(datetime.timedelta(hours=9), "KST")
+
+
 def formatted_today() -> str:
-    """Return today's date formatted as 'YYYY년 MM월 DD일'."""
-    today = datetime.date.today()
+    """Return today's date in KST formatted as 'YYYY년 MM월 DD일'."""
+    today = datetime.datetime.now(KST).date()
     return today.strftime("%Y년 %m월 %d일")
 
 

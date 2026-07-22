@@ -68,6 +68,20 @@ class AppSettings(BaseSettings):
         return SmtpConfigProxy(self)
 
 
+import datetime
+
+KST = datetime.timezone(datetime.timedelta(hours=9), "KST")
+
+
+class KSTFormatter(logging.Formatter):
+    """Logging formatter that explicitly formats time in KST (UTC+9)."""
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.datetime.fromtimestamp(record.created, tz=KST)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.strftime("%Y-%m-%d %H:%M:%S KST")
+
+
 def get_logger() -> logging.Logger:
     """Configure and return a logger with both syslog and console outputs."""
     logger = logging.getLogger("upsum")
@@ -75,7 +89,7 @@ def get_logger() -> logging.Logger:
         return logger
 
     logger.setLevel(logging.INFO)
-    formatter = logging.Formatter("upsum: %(levelname)s %(message)s")
+    formatter = KSTFormatter("%(asctime)s upsum: %(levelname)s %(message)s")
 
     # Console handler
     console_handler = logging.StreamHandler(sys.stderr)
