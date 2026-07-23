@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.2.2",
+    "pyasn1>=0.6.4",
     "sysutils",
 ]
 readme = "README.md"
@@ -23,4 +24,7 @@ upsum = "upsum.__main__:main"
 [build-system]
 requires = ["uv_build>=0.11.28,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+sysutils = { path = "../sysutils", editable = true }
 
