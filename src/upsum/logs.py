@@ -67,6 +67,7 @@ def find_latest_log_file(log_dir: Path, pattern: str = "update_all*.log") -> Opt
         raise FileNotFoundError(f"Log directory not found: {log_dir}")
 
     list_of_files = glob.glob(str(log_dir / pattern))
+    list_of_files = [f for f in list_of_files if not f.endswith(".cleaned.log")]
     if not list_of_files:
         return None
 
