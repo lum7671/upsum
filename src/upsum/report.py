@@ -5,21 +5,12 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-import google.genai as genai
+from google.genai import types
 from pydantic import BaseModel, Field
+from sysutils.gemini import DynamicGeminiManager
 
 from .logs import summarize_log_for_prompt
 
-
-GEMINI_TIMEOUT_SECONDS = 30
-GEMINI_DEFAULT_MODELS = [
-    "gemini-3.5-flash",        # 기본 모델
-    "gemini-2.5-flash"         # 폴백 모델
-]
-GEMINI_DEFAULT_ATTEMPTS_PER_MODEL = 3
-GEMINI_DEFAULT_RETRY_INTERVAL_SECONDS = 300
-GEMINI_DEFAULT_HTTP_RETRY_ATTEMPTS = 2
-GEMINI_RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 
 class UpdateReportSchema(BaseModel):
@@ -95,59 +86,12 @@ def convert_json_to_markdown(json_data: Any):
     return markdown if markdown else str(json_data)
 
 
-def _extract_status_code(error: Exception) -> Optional[int]:
-    """Extract an HTTP-like status code from Gemini SDK exceptions."""
-    code = getattr(error, "code", None)
-    if isinstance(code, int):
-        return code
-
-    status_code = getattr(error, "status_code", None)
-    if isinstance(status_code, int):
-        return status_code
-
-    match = re.search(r"\b([45]\d{2})\b", str(error))
-    if match:
-        return int(match.group(1))
-
-    return None
-
-
-def _is_retryable_error(error: Exception) -> bool:
-    """Decide whether an error should be retried based on status code."""
-    status_code = _extract_status_code(error)
-    if status_code is None:
-        return True
-    if status_code in GEMINI_RETRYABLE_STATUS_CODES:
-        return True
-    if 400 <= status_code < 500:
-        return False
-    return status_code >= 500
-
-
 def generate_summary_with_gemini(
-    api_key: str,
     parsed_data: dict,
     formatted_date: str,
     logger,
-    *,
-    models: Optional[list[str]] = None,
-    attempts_per_model: int = GEMINI_DEFAULT_ATTEMPTS_PER_MODEL,
-    retry_interval_seconds: int = GEMINI_DEFAULT_RETRY_INTERVAL_SECONDS,
-    http_retry_attempts: int = GEMINI_DEFAULT_HTTP_RETRY_ATTEMPTS,
 ) -> str:
     """Generate JSON-structured summary via Gemini and return markdown."""
-    from .gemini_model_manager import DynamicGeminiManager
-
-    if isinstance(models, str):
-        active_models = [m.strip() for m in models.split(",") if m.strip()]
-    elif models:
-        active_models = models
-    else:
-        active_models = GEMINI_DEFAULT_MODELS
-
-    if any(m.lower() in ("auto", "dynamic") for m in active_models):
-        active_models = None
-
     reboot_text = "시스템 재부팅이 필요합니다." if parsed_data["reboot_required"] else "시스템 재부팅이 필요하지 않습니다."
 
     log_content = summarize_log_for_prompt(parsed_data["log_content"])
@@ -173,24 +117,16 @@ def generate_summary_with_gemini(
         dietpi_release_notes=dietpi_release_notes,
     )
 
-    call_config = genai.types.GenerateContentConfig(
+    call_config = types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=UpdateReportSchema,
-        http_options=genai.types.HttpOptions(
-            timeout=GEMINI_TIMEOUT_SECONDS * 1000,
-            retry_options=genai.types.HttpRetryOptions(
-                attempts=http_retry_attempts,
-                http_status_codes=sorted(GEMINI_RETRYABLE_STATUS_CODES),
-            ),
-        ),
     )
 
-    manager = DynamicGeminiManager(api_key=api_key)
+    manager = DynamicGeminiManager()
 
     try:
         response, used_model = manager.generate_content_with_fallback(
             prompt=prompt,
-            preferred_models=active_models,
             config=call_config
         )
         logger.info(f"Gemini call succeeded using model {used_model}")

@@ -6,8 +6,8 @@
 
 ## 주요 기능 및 고도화 항목
 
-- **동적 Gemini 모델 탐색 및 503/429 장애 대응 (`DynamicGeminiManager`)**:
-  Google GenAI SDK를 활용해 가용 모델 목록을 동적으로 조회하고 헬스체크를 수행합니다. 특정 모델 장애 시 **정상 상태의 다음 Gemini 모델로 자동 Fallback**을 지원합니다.
+- **동적 Gemini 모델 탐색 및 503/429 장애 대응 (`sysutils.gemini`)**:
+  `sysutils` 공통 유틸리티 라이브러리를 활용해 가용 모델 목록을 동적으로 조회하고 헬스체크를 수행합니다. 특정 모델 장애 시 **정상 상태의 다음 Gemini 모델로 자동 Fallback**을 지원합니다.
 - **로그 자동 정제 및 토큰 절약**:
   ANSI 터미널 색상 코드, diffstat/경로 나열, 중복 구분선을 자동 제거하여 토큰을 절약하고 요약 품질을 극대화합니다.
 - **구조화된 요약 보고서**:
@@ -24,8 +24,7 @@
 ```text
 upsum/
 ├── docs/
-│   ├── architecture_review.md
-│   └── dynamic_model_manager.md  # 동적 모델 선별 및 503 Fallback 매커니즘 명세
+│   └── architecture_review.md
 ├── src/
 │   └── upsum/
 │       ├── __init__.py
@@ -33,7 +32,6 @@ upsum/
 │       ├── config.py             # Pydantic Settings 기반 환경변수 검증
 │       ├── logs.py               # 최신 로그 탐색 및 텍스트 축약
 │       ├── report.py             # Gemini AI 연동 및 보고서 렌더링
-│       ├── gemini_model_manager.py # 동적 Gemini 모델 탐색 및 503 Fallback 헬퍼
 │       └── email_sender.py       # SMTP 메일 발송 유틸리티
 ├── .env.example                  # 환경 변수 샘플 가이드
 ├── .env                          # API 키 및 SMTP 자격 증명 (비공개)

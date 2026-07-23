@@ -15,57 +15,15 @@ class ConfigError(Exception):
     """Raised when application configuration is invalid."""
 
 
-@dataclass
-class SmtpConfig:
-    host: str
-    port: int
-    user: str
-    password: str
-    mail_from: str
-    mail_to: str
-
-
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    # Gemini Settings
-    gemini_api_key: str = Field(validation_alias="GEMINI_API_KEY")
-    gemini_models: str = Field(default="gemini-3.5-flash,gemini-2.5-flash", validation_alias="GEMINI_MODELS")
-    gemini_attempts_per_model: int = Field(default=3, validation_alias="GEMINI_MODEL_ATTEMPTS_PER_MODEL")
-    gemini_retry_interval_seconds: int = Field(default=300, validation_alias="GEMINI_RETRY_INTERVAL_SECONDS")
-    gemini_http_retry_attempts: int = Field(default=2, validation_alias="GEMINI_HTTP_RETRY_ATTEMPTS")
-
-    # SMTP Settings
-    smtp_host: str = Field(validation_alias="SMTP_HOST")
-    smtp_port: int = Field(default=587, validation_alias="SMTP_PORT")
-    smtp_user: str = Field(default="", validation_alias="SMTP_USER")
-    smtp_password: str = Field(default="", validation_alias="SMTP_PASSWORD")
-    mail_from: str = Field(default="upsum@example.com", validation_alias="MAIL_FROM")
-    mail_to: str = Field(validation_alias="MAIL_TO")
-
     # General Settings
     log_dir: Path = Field(default=Path("~/logs"))
     log_file: Optional[Path] = Field(default=None)
     dry_run: bool = False
-
-    @property
-    def gemini_model_list(self) -> list[str]:
-        return [m.strip() for m in self.gemini_models.split(",") if m.strip()]
-
-    @property
-    def smtp(self):
-        """Provide backwards compatibility with the nested SmtpConfig struct."""
-        class SmtpConfigProxy:
-            def __init__(self, settings: "AppSettings"):
-                self.host = settings.smtp_host
-                self.port = settings.smtp_port
-                self.user = settings.smtp_user
-                self.password = settings.smtp_password
-                self.mail_from = settings.mail_from
-                self.mail_to = settings.mail_to
-        return SmtpConfigProxy(self)
 
 
 import datetime

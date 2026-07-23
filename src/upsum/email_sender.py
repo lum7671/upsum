@@ -1,18 +1,10 @@
 import datetime
-import smtplib
-import time
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from jinja2 import Template
 from markdown_it import MarkdownIt
+import sysutils.email
 
-from .config import SmtpConfig
 
-
-SMTP_TIMEOUT_SECONDS = 15
-SMTP_MAX_RETRIES = 3
-SMTP_BACKOFF_SECONDS = 2
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html>
@@ -57,7 +49,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
-def send_email(subject: str, body: str, smtp_config: SmtpConfig, logger) -> None:
+def send_email(subject: str, body: str, logger, smtp_config=None) -> None:
     """Send the summary email as both plain text and HTML using Jinja2 templates via sysutils."""
     md = MarkdownIt()
     raw_html = md.render(body)
@@ -70,7 +62,6 @@ def send_email(subject: str, body: str, smtp_config: SmtpConfig, logger) -> None
         now_str=now_str
     )
 
-    import sysutils.email
     sysutils.email.send_email(
         subject=subject,
         body=body,
@@ -78,4 +69,5 @@ def send_email(subject: str, body: str, smtp_config: SmtpConfig, logger) -> None
         smtp_config=smtp_config,
         logger_instance=logger,
     )
+
 

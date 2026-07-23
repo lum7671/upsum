@@ -60,14 +60,9 @@ def main():
         # 5. Gemini에 전처리된 로그 전달
         report_date = formatted_today()
         summary = generate_summary_with_gemini(
-            config.gemini_api_key,
             parsed_data,
             report_date,
             logger,
-            models=config.gemini_model_list,
-            attempts_per_model=config.gemini_attempts_per_model,
-            retry_interval_seconds=config.gemini_retry_interval_seconds,
-            http_retry_attempts=config.gemini_http_retry_attempts,
         )
         
         # 6. 재부팅/재시작 필요 여부 추가
@@ -85,8 +80,8 @@ def main():
         if config.dry_run:
             logger.info("Dry run enabled. No email will be sent.")
         else:
-            logger.info(f"Sending email summary to {config.smtp.mail_to}...")
-            send_email(subject, summary, config.smtp, logger)
+            logger.info("Sending email summary...")
+            send_email(subject, summary, logger)
 
     except ConfigError as e:
         logger.error(e)
