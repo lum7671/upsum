@@ -5,7 +5,7 @@ from logging.handlers import SysLogHandler
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,32 @@ class AppSettings(BaseSettings):
     log_dir: Path = Field(default=Path("~/logs"))
     log_file: Optional[Path] = Field(default=None)
     dry_run: bool = False
+
+    # SMTP Configuration (Default: 127.0.0.1:25)
+    smtp_host: str = Field(
+        default="127.0.0.1",
+        validation_alias=AliasChoices("smtp_host", "SMTP_HOST"),
+    )
+    smtp_port: int = Field(
+        default=25,
+        validation_alias=AliasChoices("smtp_port", "SMTP_PORT"),
+    )
+    smtp_user: str = Field(
+        default="",
+        validation_alias=AliasChoices("smtp_user", "SMTP_USER"),
+    )
+    smtp_password: str = Field(
+        default="",
+        validation_alias=AliasChoices("smtp_password", "SMTP_PASSWORD"),
+    )
+    mail_from: str = Field(
+        default="admin@ohmy.pe.kr",
+        validation_alias=AliasChoices("mail_from", "MAIL_FROM"),
+    )
+    mail_to: str = Field(
+        default="ness@ohmy.pe.kr",
+        validation_alias=AliasChoices("mail_to", "MAIL_TO"),
+    )
 
 
 import datetime

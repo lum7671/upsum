@@ -81,7 +81,7 @@ def main():
             logger.info("Dry run enabled. No email will be sent.")
         else:
             logger.info("Sending email summary...")
-            send_email(subject, summary, logger)
+            send_email(subject, summary, logger, smtp_config=config)
 
     except ConfigError as e:
         logger.error(e)
