@@ -1,13 +1,13 @@
 import datetime
 import json
+import os
 import re
-import time
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
-from google.genai import types
 from pydantic import BaseModel, Field
-from sysutils.gemini import DynamicGeminiManager
 
 from .logs import summarize_log_for_prompt
 
@@ -86,12 +86,26 @@ def convert_json_to_markdown(json_data: Any):
     return markdown if markdown else str(json_data)
 
 
-def generate_summary_with_gemini(
+def _find_antigravity_bin() -> str:
+    """Locate the antigravity (or agy) CLI executable."""
+    found = shutil.which("antigravity") or shutil.which("agy")
+    if found:
+        return found
+    for candidate in (
+        Path.home() / ".local" / "bin" / "antigravity",
+        Path.home() / ".local" / "bin" / "agy",
+    ):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    raise RuntimeError("Antigravity CLI binary ('antigravity' or 'agy') not found.")
+
+
+def generate_summary_with_antigravity(
     parsed_data: dict,
     formatted_date: str,
     logger,
 ) -> str:
-    """Generate JSON-structured summary via Gemini and return markdown."""
+    """Generate JSON-structured summary via Antigravity CLI and return markdown."""
     reboot_text = "시스템 재부팅이 필요합니다." if parsed_data["reboot_required"] else "시스템 재부팅이 필요하지 않습니다."
 
     log_content = summarize_log_for_prompt(parsed_data["log_content"])
@@ -117,30 +131,61 @@ def generate_summary_with_gemini(
         dietpi_release_notes=dietpi_release_notes,
     )
 
-    call_config = types.GenerateContentConfig(
-        response_mime_type="application/json",
-        response_schema=UpdateReportSchema,
-    )
-
-    manager = DynamicGeminiManager()
+    antigravity_bin = _find_antigravity_bin()
+    schema_json = json.dumps(UpdateReportSchema.model_json_schema(), ensure_ascii=False)
+    cmd = [
+        antigravity_bin,
+        "--dangerously-skip-permissions",
+        "--disable-slash-commands",
+        "--output-format",
+        "json",
+        "--json-schema",
+        schema_json,
+        "--print",
+        prompt,
+    ]
 
     try:
-        response, used_model = manager.generate_content_with_fallback(
-            prompt=prompt,
-            config=call_config
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
         )
-        logger.info(f"Gemini call succeeded using model {used_model}")
+    except subprocess.TimeoutExpired as e:
+        logger.error("Antigravity CLI timed out while generating summary.")
+        raise RuntimeError("Antigravity CLI timed out") from e
+
+    output = result.stdout.strip()
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        if not output:
+            logger.error(f"Antigravity CLI failed (exit={result.returncode}): {stderr}")
+            raise RuntimeError(f"Antigravity CLI failed with exit code {result.returncode}")
+        logger.warning(f"Antigravity CLI exited with code {result.returncode}, but produced output: {stderr}")
+
+    logger.info("Antigravity CLI call succeeded")
+
+    response_text = output
+    try:
+        cli_payload = json.loads(output)
+        if isinstance(cli_payload, dict):
+            if cli_payload.get("structured_output") is not None:
+                report_data = UpdateReportSchema.model_validate(cli_payload["structured_output"])
+                return convert_json_to_markdown(report_data.model_dump())
+            if "response" in cli_payload and cli_payload["response"] is not None:
+                response_text = str(cli_payload["response"]).strip()
     except Exception as e:
-        logger.error(f"Gemini API call failed after dynamic model fallback chain: {e}")
-        raise RuntimeError("Gemini API call failed after dynamic model fallback chain") from e
+        logger.warning(f"Failed to parse Antigravity CLI JSON envelope: {e}. Falling back to response parser.")
 
     try:
-        report_data = UpdateReportSchema.model_validate_json(response.text.strip())
+        report_data = UpdateReportSchema.model_validate_json(response_text)
         return convert_json_to_markdown(report_data.model_dump())
     except Exception as e:
         logger.warning(f"Failed to validate response as schema: {e}. Falling back to default parser.")
-        json_response = parse_json_response(response.text, logger)
+        json_response = parse_json_response(response_text, logger)
         if json_response:
             return convert_json_to_markdown(json_response)
-        return response.text
+        return response_text
 

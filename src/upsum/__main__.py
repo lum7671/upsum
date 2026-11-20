@@ -4,7 +4,7 @@ from pathlib import Path
 from .config import AppSettings, ConfigError, get_logger, load_config, parse_args
 from .email_sender import send_email
 from .logs import find_latest_log_file
-from .report import formatted_today, generate_summary_with_gemini
+from .report import formatted_today, generate_summary_with_antigravity
 from .log_preprocess import run_preprocess_pipeline, get_reboot_decision
 
 
@@ -51,15 +51,15 @@ def main():
         with cleaned_log.open(encoding="utf-8") as f:
             cleaned_log_content = f.read()
         
-        # 4. Gemini input 형태로 변환
+        # 4. Antigravity CLI input 형태로 변환
         parsed_data = {
             "log_content": cleaned_log_content,
             "reboot_required": decision['reboot_needed'],
         }
         
-        # 5. Gemini에 전처리된 로그 전달
+        # 5. Antigravity CLI에 전처리된 로그 전달
         report_date = formatted_today()
-        summary = generate_summary_with_gemini(
+        summary = generate_summary_with_antigravity(
             parsed_data,
             report_date,
             logger,

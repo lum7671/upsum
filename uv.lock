@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13.2"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -568,7 +568,6 @@ name = "upsum"
 version = "0.9.1"
 source = { editable = "." }
 dependencies = [
-    { name = "google-genai" },
     { name = "jinja2" },
     { name = "markdown-it-py" },
     { name = "pyasn1" },
@@ -580,7 +579,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "google-genai", specifier = ">=2.12.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "markdown-it-py", specifier = ">=4.0.0" },
     { name = "pyasn1", specifier = ">=0.6.4" },
