@@ -53,7 +53,13 @@ PATTERNS_TO_REMOVE = [
     r"^\s*SUCCESS: .+$",                      # 성공 요약행
     # r"^\s*ERROR: .+$",                        # 상세 오류는 상위 리포트에서 처리
     r"^─+$",                                  # 단독 ─ 라인
+    r"^Downloading\s+[░▒▓█]+.*%$",            # Oh My Posh 등 진행 바 라인
+    r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+.*$",                  # Braille 스피너 진행 라인
 ]
+
+# 터미널 이스케이프 시퀀스 패턴 (OSC + CSI)
+OSC_ESCAPE_RE = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+CSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 
@@ -81,9 +87,10 @@ def clean_log_content(log_content: str) -> str:
     cleaned_lines = []
 
     for line in lines:
-        normalized_line = line.strip()
-        # ANSI 색상 이스케이프(ESC 시퀀스) 제거
-        normalized_line = re.sub(r"\x1b\[[0-9;]*m", "", normalized_line)
+        # 터미널 OSC/CSI 이스케이프 시퀀스 제거 후 공백 정리
+        normalized_line = OSC_ESCAPE_RE.sub("", line)
+        normalized_line = CSI_ESCAPE_RE.sub("", normalized_line)
+        normalized_line = normalized_line.strip()
         # 로그 구분선 노이즈를 줄이기 위해 시작부의 반복 문자를 1개로 축약
         for repeat_char in LEADING_REPEAT_CHARS:
             escaped = re.escape(repeat_char)
